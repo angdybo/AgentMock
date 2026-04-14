@@ -47,6 +47,11 @@ public class HttpSyncMockServiceImpl implements HttpSyncMockService {
         Binding binding = new Binding();
         binding.setProperty("request", request);
         binding.setProperty("response", response);
+        // 把请求体也绑定进来，避免脚本中重复读取InputStream报错
+        Object body = request.getAttribute("body");
+        if (body != null) {
+            binding.setProperty("body", body.toString());
+        }
         return binding;
     }
 
