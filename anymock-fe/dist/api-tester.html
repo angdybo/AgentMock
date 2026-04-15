@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>API 调试工具</title>
+  <!-- Element UI CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f5f7fa; font-family: 'Microsoft YaHei', sans-serif; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    .header {
+      background: linear-gradient(135deg, #409EFF, #36d399);
+      color: white;
+      padding: 20px 30px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .back-link { 
+      color: rgba(255,255,255,0.85); text-decoration: none; 
+      font-size: 14px; cursor: pointer;
+    }
+    .header .back-link:hover { color: white; }
+
+    .card {
+      background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      padding: 24px; margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 15px; font-weight: 600; color: #303133;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px solid #ebeef5;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .url-row { display: flex; gap: 10px; align-items: stretch; }
+    .url-row .el-select { width: 110px; flex-shrink: 0; }
+
+    /* 响应区 */
+    .response-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .response-body {
+      background: #1e1e1e; color: #d4d4d4; padding: 18px;
+      border-radius: 6px; font-size: 13px; line-height: 1.7;
+      max-height: 480px; overflow: auto; white-space: pre-wrap;
+      word-break: break-all; font-family: Menlo, Monaco, Consolas, monospace;
+    }
+    .response-body.error { background: #2c1810; color: #f48771; }
+    .empty-tip { 
+      text-align: center; color: #909399; padding: 50px 0; 
+      font-size: 14px; user-select: none;
+    }
+
+    /* 历史记录表格 */
+    .history-table .method-tag { font-weight: bold; }
+    .history-table .url-cell { color: #606266; font-size: 13px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+    .status-success { color: #67C23A; font-weight: bold; }
+    .status-warning { color: #E6A23C; font-weight: bold; }
+    .status-danger { color: #F56C6C; font-weight: bold; }
+    .time-cell { color: #909399; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="container">
+    <!-- 头部 -->
+    <div class="header">
+      <h1>🔧 API 调试工具</h1>
+      <a class="back-link" @click="goBack">← 返回首页</a>
+    </div>
+
+    <!-- 请求配置 -->
+    <div class="card">
+      <div class="card-title">请求配置</div>
+      
+      <div class="url-row">
+        <el-select v-model="method" size="default" placeholder="方法">
+          <el-option label="GET" value="GET"></el-option>
+          <el-option label="POST" value="POST"></el-option>
+          <el-option label="PUT" value="PUT"></el-option>
+          <el-option label="DELETE" value="DELETE"></el-option>
+          <el-option label="PATCH" value="PATCH"></el-option>
+        </el-select>
+        <el-input v-model="url" placeholder="请输入接口URL，例如 http://target.com/api/test" 
+                  size="default" clearable @keyup.enter.native="sendRequest">
+          <el-button slot="append" icon="el-icon-s-promotion" type="primary" 
+                     :loading="loading" @click="sendRequest">发送请求</el-button>
+        </el-input>
+      </div>
+
+      <!-- Body -->
+      <div v-if="method !== 'GET'" style="margin-top: 14px;">
+        <span style="color:#909399;font-size:13px;display:block;margin-bottom:6px;">Request Body (JSON)</span>
+        <el-input type="textarea" v-model="body" :rows="4" placeholder='{"key": "value"}' />
+      </div>
+    </div>
+
+    <!-- 历史记录表格 -->
+    <div class="card">
+      <div class="card-title">
+        <span>📋 请求历史（最近 {{ historyTotal }} 条）</span>
+        <el-button type="danger" size="mini" plain icon="el-icon-delete"
+                   :disabled="!history.length" @click="clearHistory">清空</el-button>
+      </div>
+      
+      <template v-if="history.length > 0">
+        <el-table :data="history" stripe size="small" class="history-table" 
+                  highlight-current-row
+                  header-row-class-name="history-header"
+                  @row-click="loadHistoryRow">
+          <el-table-column width="70" label="方法" align="center">
+            <template slot-scope="{row}">
+              <span class="method-tag" :class="'method-' + row.method.toLowerCase()">{{ row.method }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column min-width="350" label="请求URL">
+            <template slot-scope="{row}">
+              <span class="url-cell" :title="row.url">{{ row.url }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column width="80" label="状态" align="center">
+            <template slot-scope="{row}">
+              <span :class="getStatusClass(row.response_status)">{{ row.response_status || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column width="75" label="耗时" align="center">
+            <template slot-scope="{row}">
+              {{ (row.cost_time || 0) + 'ms' }}
+            </template>
+          </el-table-column>
+          <el-table-column width="165" label="时间" align="center">
+            <template slot-scope="{row}">
+              <span class="time-cell">{{ formatTime(row.create_time) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column width="55" align="center" label="">
+            <template slot-scope="{row}">
+              <el-button type="text" icon="el-icon-close" size="mini" 
+                         title="删除此条" @click.stop="deleteHistory(row.id)"></el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- 分页 -->
+        <div style="margin-top: 16px; text-align: right;" v-if="historyTotal > historyPageSize">
+          <el-pagination
+            layout="prev, pager, next"
+            :total="historyTotal"
+            :page-size="historyPageSize"
+            :current-page.sync="historyPage"
+            @current-change="fetchHistory">
+          </el-pagination>
+        </div>
+      </template>
+      <div v-else class="empty-tip" style="padding:30px 0;">暂无历史记录</div>
+    </div>
+
+    <!-- 响应结果 -->
+    <div class="card">
+      <div class="card-title response-header">
+        <span>响应结果</span>
+        <template v-if="statusCode">
+          <el-tag :type="statusType" size="medium">{{ statusCode }}</el-tag>
+          <el-tag type="info" size="medium" plain>{{ responseTime }} ms</el-tag>
+          <el-button type="text" icon="el-icon-copy-document" size="mini" @click="copyResponse">复制</el-button>
+        </template>
+      </div>
+      <pre v-if="responseBody" :class="['response-body', {'error': isError}]">{{ responseBody }}</pre>
+      <div v-else class="empty-tip">👆 输入 URL 后点击「发送请求」查看响应</div>
+    </div>
+  </div>
+</div>
+
+<!-- Vue + Element UI -->
+<script src="https://unpkg.com/vue@2/dist/vue.min.js"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script>
+new Vue({
+  el: '#app',
+  data() {
+    return {
+      url: '',
+      method: 'POST',
+      body: '',
+      loading: false,
+      statusCode: '',
+      responseBody: '',
+      responseTime: '',
+      isError: false,
+      // 历史记录 - 后端存储
+      history: [],
+      historyPage: 1,
+      historyPageSize: 10,
+      historyTotal: 0
+    }
+  },
+  mounted() {
+    this.fetchHistory()
+  },
+  computed: {
+    statusType() {
+      if (!this.statusCode) return 'info'
+      const code = parseInt(this.statusCode)
+      if (code >= 200 && code < 300) return 'success'
+      if (code >= 400 && code < 500) return 'warning'
+      if (code >= 500) return 'danger'
+      return 'info'
+    }
+  },
+  methods: {
+    async sendRequest() {
+      if (!this.url) {
+        this.$message.warning('请输入接口 URL')
+        return
+      }
+      if (!this.url.startsWith('http')) this.url = 'https://' + this.url
+
+      this.loading = true
+      this.responseBody = ''
+      this.isError = false
+      const startTime = Date.now()
+
+      try {
+        const res = await fetch('/anymockweb_api/v2/api_proxy/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: this.url,
+            method: this.method,
+            body: this.body,
+            headers: {}
+          })
+        })
+
+        this.statusCode = res.status.toString()
+        const text = await res.text()
+        
+        try {
+          const json = JSON.parse(text)
+          this.responseBody = JSON.stringify(json, null, 2)
+        } catch(e) {
+          this.responseBody = text
+        }
+
+        // 刷新历史列表
+        this.fetchHistory()
+      } catch(e) {
+        this.isError = true
+        this.statusCode = 'Error'
+        this.responseBody = e.message || '请求失败\n可能原因:\n1. 网络不可达\n2. Manager 服务未启动代理接口\n3. 目标地址无效'
+      } finally {
+        this.loading = false
+        this.responseTime = Date.now() - startTime
+      }
+    },
+
+    /** 从后端加载历史记录 */
+    async fetchHistory() {
+      try {
+        const res = await fetch('/anymockweb_api/v2/api_proxy/history/list?page=' + this.historyPage + '&pageSize=' + this.historyPageSize)
+        const data = await res.json()
+        if (data.resultCode === '000000') {
+          this.history = data.data || []
+          this.historyTotal = data.total || 0
+        }
+      } catch(e) {
+        console.error('加载历史失败', e)
+      }
+    },
+
+    /** 点击历史行 -> 加载到表单 */
+    loadHistoryRow(row) {
+      this.method = row.method || 'POST'
+      this.url = row.url || ''
+      // 尝试解析 body
+      if (row.request_body) {
+        try {
+          const parsed = JSON.parse(row.request_body)
+          this.body = typeof parsed === 'object' ? JSON.stringify(parsed, null, 2) : parsed
+        } catch(e) {
+          this.body = row.request_body
+        }
+      } else {
+        this.body = ''
+      }
+    },
+
+    /** 兼容旧版 */
+    loadHistory(h) {
+      this.method = h.method
+      this.url = h.url
+      this.body = h.body || ''
+    },
+
+    /** 删除单条历史 */
+    async deleteHistory(id) {
+      try {
+        const res = await fetch('/anymockweb_api/v2/api_proxy/history/' + id, { method: 'DELETE' })
+        const data = await res.json()
+        if (data.resultCode === '000000') {
+          this.$message.success('已删除')
+          this.fetchHistory()
+        }
+      } catch(e) {
+        this.$message.error('删除失败')
+      }
+    },
+
+    /** 清空历史 */
+    clearHistory() {
+      this.$confirm('确定清空所有历史记录？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(async () => {
+        try {
+          const res = await fetch('/anymockweb_api/v2/api_proxy/history/clear', { method: 'DELETE' })
+          const data = await res.json()
+          if (data.resultCode === '000000') {
+            this.$message.success('已清空')
+            this.fetchHistory()
+          }
+        } catch(e) {
+          this.$message.error('操作失败')
+        }
+      }).catch(() => {})
+    },
+
+    copyResponse() {
+      navigator.clipboard.writeText(this.responseBody).then(() => {
+        this.$message.success('已复制到剪贴板')
+      }).catch(() => {
+        this.$message.error('复制失败')
+      })
+    },
+
+    formatTime(timeStr) {
+      if (!timeStr) return '-'
+      // 2026-04-15T20:10:00 -> 2026-04-15 20:10
+      var d = new Date(timeStr.replace(/-/g, '/'))
+      if (isNaN(d.getTime())) return timeStr.slice(0, 16).replace('T', ' ')
+      var pad = function(n) { return n < 10 ? '0' + n : n }
+      return [d.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-') + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+    },
+
+    getStatusClass(status) {
+      if (!status) return ''
+      status = Number(status)
+      if (status >= 200 && status < 300) return 'status-success'
+      if (status >= 400 && status < 500) return 'status-warning'
+      if (status >= 500) return 'status-danger'
+      return ''
+    },
+
+    goBack() {
+      window.location.href = '/fe/index.html#/home'
+    }
+  }
+})
+</script>
+<style>
+/* 方法标签颜色 */
+.method-get { color: #67C23A; }
+.method-post { color: #409EFF; }
+.method-put { color: #E6A23C; }
+.method-delete { color: #F56C6C; }
+.method-patch { color: #909399; }
+/* 表头样式 */
+.el-table .history-header th { background-color: #fafafa !important; color: #303133; font-weight: 600; font-size: 13px; }
+</style>
+</body>
+</html>

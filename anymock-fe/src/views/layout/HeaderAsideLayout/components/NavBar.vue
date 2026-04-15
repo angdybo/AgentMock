@@ -11,6 +11,7 @@
     >
       <a-menu-item key="/home">首页</a-menu-item>
       <a-menu-item key="/interface/list">接口列表</a-menu-item>
+      <a-menu-item key="/my_interface/list">我的接口列表</a-menu-item>
       <a-menu-item key="/interface/create/0">创建接口</a-menu-item>
       <a-menu-item key="/doc">文档</a-menu-item>
     </a-menu>

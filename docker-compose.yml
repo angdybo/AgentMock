@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # AnyMock 后端服务（Manager 8329 + Core 8330）
+  anymock:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    container_name: anymock-app
+    environment:
+      # MySQL — 使用线上地址
+      SPRING_DATASOURCE_URL: jdbc:mysql://10.6.14.12:30059/anymock_opensource?serverTimezone=UTC&allowLoadLocalInfile=true&defaultCommandTimeout=300&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: JZTeya0!
+      # Redis — 使用线上地址
+      REDIS_HOST: 10.6.14.12
+      REDIS_PORT: 30660
+      REDIS_PASSWORD: JZTeya0Rel
+      REDIS_DATABASE: 0
+      # Core 地址（供 Manager 调用 + 前端展示）
+      CORE_URL_PREFIX: http://localhost:8330
+      # 前端静态资源路径
+      FE_PATH: file:/app/dist/
+    volumes:
+      - ./anymock-fe/dist:/app/dist
+    ports:
+      - "8329:8329"  # Manager（管理后台）
+      - "8330:8330"  # Core（Mock 引擎）
+    restart: unless-stopped

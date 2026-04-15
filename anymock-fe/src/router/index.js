@@ -59,6 +59,17 @@ export const constantRouterMap = [
     ]
   },
   {
+    path: '/my_interface',
+    component: Layout,
+    children: [
+      {
+        name: 'my_interface_list',
+        path: '/my_interface/list',
+        component: () => import('@/views/interface/my_list')
+      }
+    ]
+  },
+  {
     path: '/interface',
     component: Layout,
     children: [
