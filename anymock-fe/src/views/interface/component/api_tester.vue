@@ -1,5 +1,16 @@
 <template>
   <div class="api-tester">
+    <!-- 响应结果区（放在上面） -->
+    <el-card class="response-card" shadow="hover" style="margin-bottom:15px;">
+      <div slot="header" class="card-header">
+        <span>响应结果</span>
+        <el-tag v-if="statusCode" :type="statusType" size="small">{{ statusCode }}</el-tag>
+        <el-tag v-if="responseTime" type="info" size="small" style="margin-left:8px">{{ responseTime }}ms</el-tag>
+      </div>
+      <pre v-if="responseBody" class="response-body" :class="{ 'error-body': isError }">{{ responseBody }}</pre>
+      <div v-else class="empty-tip">点击「发送」按钮查看响应结果</div>
+    </el-card>
+
     <!-- 请求配置区 -->
     <el-card class="request-card" shadow="hover">
       <div slot="header" class="card-header">
@@ -30,17 +41,12 @@
         <el-input type="textarea" v-model="body" :rows="4" placeholder='{"key": "value"}' />
       </div>
 
-    </el-card>
-
-    <!-- 响应结果区 -->
-    <el-card class="response-card" shadow="hover" style="margin-top:15px;">
-      <div slot="header" class="card-header">
-        <span>响应结果</span>
-        <el-tag v-if="statusCode" :type="statusType" size="small">{{ statusCode }}</el-tag>
-        <el-tag v-if="responseTime" type="info" size="small" style="margin-left:8px">{{ responseTime }}ms</el-tag>
+      <!-- Authorization 输入 -->
+      <div style="margin-bottom: 15px;">
+        <span style="color:#666;font-size:12px;margin-bottom:5px;display:block;">Authorization</span>
+        <el-input v-model="authorization" placeholder="Bearer token 或 Basic Base64" />
       </div>
-      <pre v-if="responseBody" class="response-body" :class="{ 'error-body': isError }">{{ responseBody }}</pre>
-      <div v-else class="empty-tip">点击「发送」按钮查看响应结果</div>
+
     </el-card>
   </div>
 </template>
@@ -55,6 +61,7 @@ export default {
       url: '',
       method: 'GET',
       body: '',
+      authorization: '',
       loading: false,
       statusCode: '',
       responseBody: '',
@@ -89,7 +96,10 @@ export default {
           url: this.url,
           method: this.method,
           body: this.body,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': this.authorization || ''
+          }
         })
         
         this.statusCode = res.status.toString()

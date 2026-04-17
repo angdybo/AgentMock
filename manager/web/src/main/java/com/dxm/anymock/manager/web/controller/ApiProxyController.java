@@ -3,13 +3,23 @@ package com.dxm.anymock.manager.web.controller;
 import com.dxm.anymock.manager.web.WebConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
-import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -23,19 +33,19 @@ import java.util.Map;
 @RequestMapping(WebConstants.URL_PREFIX_API_V2)
 public class ApiProxyController {
 
-    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final CloseableHttpClient httpClient;
+
+    public ApiProxyController() {
+        RequestConfig config = RequestConfig.custom()
+                .setConnectTimeout(10000)
+                .setSocketTimeout(30000)
+                .build();
+        this.httpClient = HttpClients.custom().setDefaultRequestConfig(config).build();
+    }
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    public ApiProxyController() {
-        this.restTemplate = new RestTemplate();
-        // 强制使用 UTF-8 读取响应，避免中文乱码
-        restTemplate.getMessageConverters().stream()
-                .filter(c -> c instanceof StringHttpMessageConverter)
-                .forEach(c -> ((StringHttpMessageConverter) c).setDefaultCharset(StandardCharsets.UTF_8));
-    }
 
     /**
      * 通用 HTTP 代理转发 + 自动保存历史记录
@@ -43,36 +53,48 @@ public class ApiProxyController {
      */
     @PostMapping("/api_proxy/send")
     public ResponseEntity<String> proxyRequest(@RequestBody JsonNode requestNode) {
+        long startTime = System.currentTimeMillis();
+        CloseableHttpResponse response = null;
         try {
-            String url = requestNode.get("url").asText();
-            String method = requestNode.has("method") ? requestNode.get("method").asText() : "GET";
-            HttpMethod httpMethod = HttpMethod.valueOf(method.toUpperCase());
+            String urlStr = requestNode.get("url").asText();
+            String method = requestNode.has("method") ? requestNode.get("method").asText().toUpperCase() : "GET";
             String requestBody = (requestNode.has("body") && !requestNode.get("body").isNull())
-                    ? requestNode.get("body").toString() : "";
+                    ? requestNode.get("body").asText() : "";
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<Object> entity = requestBody.isEmpty()
-                    ? new HttpEntity<>(headers)
-                    : new HttpEntity<>(requestBody, headers);
-
-            long startTime = System.currentTimeMillis();
-            int statusCode;
-            String responseBody;
-
-            try {
-                ResponseEntity<String> response = restTemplate.exchange(url, httpMethod, entity, String.class);
-                statusCode = response.getStatusCode().value();
-                responseBody = response.getBody() != null ? response.getBody() : "";
-            } catch (org.springframework.web.client.HttpClientErrorException | org.springframework.web.client.HttpServerErrorException ex) {
-                statusCode = ex.getRawStatusCode();
-                responseBody = ex.getResponseBodyAsString() != null ? ex.getResponseBodyAsString() : "";
+            HttpRequestBase httpRequest;
+            if ("GET".equals(method)) {
+                httpRequest = new HttpGet(urlStr);
+            } else {
+                HttpPost post = new HttpPost(urlStr);
+                if (!requestBody.isEmpty()) {
+                    post.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
+                }
+                httpRequest = post;
             }
+
+            // 转发自定义请求头（如 Authorization、Content-Type）
+            if (requestNode.has("headers") && requestNode.get("headers").isObject()) {
+                requestNode.get("headers").fieldNames().forEachRemaining(key -> {
+                    JsonNode val = requestNode.get("headers").get(key);
+                    if (val != null && !val.isNull() && !val.asText().isEmpty()) {
+                        httpRequest.setHeader(key, val.asText());
+                    }
+                });
+            }
+            // POST 请求默认加上 Content-Type（如果前端没传）
+            if (!"GET".equals(method) && requestNode.has("headers") && requestNode.get("headers").has("Content-Type")
+                    && (requestNode.get("headers").get("Content-Type").isNull() || requestNode.get("headers").get("Content-Type").asText().isEmpty())) {
+                httpRequest.setHeader("Content-Type", "application/json");
+            }
+
+            response = httpClient.execute(httpRequest);
+            int statusCode = response.getStatusLine().getStatusCode();
+            HttpEntity entity = response.getEntity();
+            String responseBody = (entity != null) ? EntityUtils.toString(entity, StandardCharsets.UTF_8) : "";
             long costTime = System.currentTimeMillis() - startTime;
 
-            // 保存历史记录到数据库
-            saveHistory(url, method, requestBody, statusCode, responseBody, costTime);
+            // 保存历史记录
+            saveHistory(urlStr, method, requestBody, statusCode, responseBody, costTime);
 
             Map<String, Object> result = new java.util.LinkedHashMap<>();
             result.put("status", statusCode);
@@ -88,6 +110,10 @@ public class ApiProxyController {
             } catch (Exception ex2) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("{\"error\":\"internal error\"}");
+            }
+        } finally {
+            if (response != null) {
+                try { response.close(); } catch (IOException ignored) {}
             }
         }
     }

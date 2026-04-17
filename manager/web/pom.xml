@@ -20,6 +20,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.dxm.anymock</groupId>
             <artifactId>anymock-manager-biz</artifactId>
         </dependency>
