@@ -14,8 +14,9 @@ COPY anymock-fe/dist/ /app/dist/
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-# 暴露端口
-EXPOSE 8329 8330
- 同时启动 Core(8330) + Manager(8329)
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+  # 暴露端口
+  EXPOSE 8329 8330
+  # 同时启动 Core(8330) + Manager(8329)
+  ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
 #
