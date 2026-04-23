@@ -29,8 +29,8 @@
         </el-col>
         <el-col :span="20">
           <el-input v-model="url" placeholder="请输入接口URL，例如: http://target.com/api/test" size="default">
-            <el-button slot="append" icon="el-icon-s-promotion" type="primary" 
-              @click="sendRequest" :loading="loading">发送</el-button>
+            <el-button slot="append" icon="el-icon-s-promotion" type="primary"
+              @click="sendRequest" :loading="loading" :disabled="loading">发送</el-button>
           </el-input>
         </el-col>
       </el-row>
@@ -92,14 +92,15 @@ export default {
       const startTime = Date.now()
 
       try {
+        const headers = { 'Content-Type': 'application/json' }
+        if (this.authorization && this.authorization.trim()) {
+          headers['Authorization'] = this.authorization.trim()
+        }
         const res = await axios.post('/anymockweb_api/v2/api_proxy/send', {
           url: this.url,
           method: this.method,
           body: this.body,
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': this.authorization || ''
-          }
+          headers: headers
         })
         
         this.statusCode = res.status.toString()

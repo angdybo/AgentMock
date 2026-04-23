@@ -1,0 +1,61 @@
+/* AnyMock 全局样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+/* ========== 主题系统 ========== */
+:root,
+[data-theme="light"] {
+  --anymock-primary: #409eff;
+  --anymock-bg: #ffffff;
+  --anymock-sidebar-bg: #304156;
+  --anymock-text-primary: #303133;
+  --anymock-text-regular: #606266;
+  --anymock-border: #dcdfe6;
+  --anymock-body-bg: #f5f7fa;
+  --anymock-card-bg: #ffffff;
+  --anymock-hover-bg: #ecf5ff;
+}
+
+[data-theme="dark"] {
+  --anymock-primary: #409eff;
+  --anymock-bg: #1a1a2e;
+  --anymock-sidebar-bg: #16213e;
+  --anymock-text-primary: #e0e0e0;
+  --anymock-text-regular: #b0b0b0;
+  --anymock-border: #3a3a5c;
+  --anymock-body-bg: #0f0f1a;
+  --anymock-card-bg: #1a1a2e;
+  --anymock-hover-bg: #1f2d3d;
+}
+
+[data-theme="purple"] {
+  --anymock-primary: #8957e5;
+  --anymock-bg: #faf8ff;
+  --anymock-sidebar-bg: #2d1b4e;
+  --anymock-text-primary: #2d1b4e;
+  --anymock-text-regular: #6b5b8a;
+  --anymock-border: #d4c8f0;
+  --anymock-body-bg: #f0ebfa;
+  --anymock-card-bg: #ffffff;
+  --anymock-hover-bg: #ede4ff;
+}
+
+[data-theme="green"] {
+  --anymock-primary: #67c23a;
+  --anymock-bg: #f0f9eb;
+  --anymock-sidebar-bg: #1a3a1a;
+  --anymock-text-primary: #1a3a1a;
+  --anymock-text-regular: #4a6a3a;
+  --anymock-border: #b3d88c;
+  --anymock-body-bg: #f5fbef;
+  --anymock-card-bg: #ffffff;
+  --anymock-hover-bg: #e8f5d1;
+}

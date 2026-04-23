@@ -8,6 +8,7 @@ import com.dxm.anymock.common.dal.model.enums.ConfigMode;
 import com.dxm.anymock.core.biz.Delayer;
 import com.dxm.anymock.core.biz.service.GroovyService;
 import com.dxm.anymock.core.biz.service.HttpAsyncMockService;
+import com.dxm.anymock.core.biz.service.MockDataGeneratorService;
 import com.dxm.anymock.core.biz.HttpMockContext;
 import groovy.lang.Binding;
 import org.apache.commons.io.IOUtils;
@@ -38,6 +39,9 @@ public class HttpAsyncMockServiceImpl implements HttpAsyncMockService {
     @Autowired
     private GroovyService groovyService;
 
+    @Autowired
+    private MockDataGeneratorService mockDataGeneratorService;
+
     private Binding buildBindig(HttpServletRequest request, HttpURLConnection httpURLConnection) {
         Binding binding = new Binding();
         binding.setProperty("request", request);
@@ -67,6 +71,8 @@ public class HttpAsyncMockServiceImpl implements HttpAsyncMockService {
         String requestContent;
         if (configMode == TEXT) {
             requestContent = httpInterfaceBO.getCallbackRequestBody();
+            // 解析并替换数据生成器占位符
+            requestContent = mockDataGeneratorService.parse(requestContent);
         } else if (configMode == GROOVY) {
             requestContent = groovyService.exec(
                     buildBindig(request, httpURLConnection),
@@ -98,9 +104,8 @@ public class HttpAsyncMockServiceImpl implements HttpAsyncMockService {
                 outputStream.flush();
                 outputStream.close();
             }
-        }else {
+        } else {
             logger.info("Async RequestContent 为空");
-
             return;
         }
 

@@ -18,7 +18,7 @@ router.beforeEach((to, from, next) => {
     store.commit('UPDATE_NAR_BAR_ACTIVE', [to.fullPath])
     next()
   } else {
-    next({ path: '/404', replace: true, query: { noGoBack: true }})
+    next({ path: '/home', replace: true })
   }
   NProgress.done()
 })

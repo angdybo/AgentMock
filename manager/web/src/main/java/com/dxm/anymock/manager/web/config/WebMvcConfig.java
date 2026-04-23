@@ -30,6 +30,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/fe/**").addResourceLocations(fePath);
+        registry.addResourceHandler("/assets/**").addResourceLocations(fePath + "assets/");
+        registry.addResourceHandler("/favicon.png").addResourceLocations(fePath);
+        registry.addResourceHandler("/jztlogo.png").addResourceLocations(fePath);
     }
 
     @Bean

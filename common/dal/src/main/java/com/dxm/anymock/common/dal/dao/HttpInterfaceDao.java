@@ -12,6 +12,7 @@ public interface HttpInterfaceDao {
     List<HttpInterfaceBO> queryBySpaceIdWithRowBoundsOrderByClause(Long spaceId, RowBounds rowBounds, String orderByClause);
     List<HttpInterfaceBO> queryBySpaceId(Long spaceId);
     HttpInterfaceBO queryByKey(HttpInterfaceKeyBO httpInterfaceKeyBO);
+    HttpInterfaceBO queryByKeyLightweight(HttpInterfaceKeyBO httpInterfaceKeyBO);
     Long create(HttpInterfaceBO httpInterfaceBO);
     void update(HttpInterfaceBO httpInterfaceBO);
     void delete(Long id);

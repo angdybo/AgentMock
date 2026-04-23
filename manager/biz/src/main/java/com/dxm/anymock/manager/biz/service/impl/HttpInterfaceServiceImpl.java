@@ -52,11 +52,14 @@ public class HttpInterfaceServiceImpl implements HttpInterfaceService {
 
     @Override
     public HttpInterfaceDTO queryById(Long id) {
+        System.err.println(">>> [queryById] id=" + id);
         HttpInterfaceBO httpInterfaceBO = httpInterfaceDao.queryById(id);
         if (httpInterfaceBO == null) {
             throw new BizException(ResultCode.NOT_FOUND_HTTP_INTERFACE);
         }
-        return convertToDTO(httpInterfaceBO);
+        HttpInterfaceDTO dto = convertToDTO(httpInterfaceBO);
+        System.err.println("<<< [queryById] id=" + id + " name=" + dto.getName());
+        return dto;
     }
 
     @Override
@@ -103,7 +106,8 @@ public class HttpInterfaceServiceImpl implements HttpInterfaceService {
         HttpInterfaceKeyBO httpInterfaceKeyBO = new HttpInterfaceKeyBO();
         httpInterfaceKeyBO.setRequestUri(request.getUri());
         httpInterfaceKeyBO.setRequestMethod(request.getMethod());
-        HttpInterfaceBO httpInterfaceBO = httpInterfaceDao.queryByKey(httpInterfaceKeyBO);
+        // 使用轻量级查询，避免加载关联数据
+        HttpInterfaceBO httpInterfaceBO = httpInterfaceDao.queryByKeyLightweight(httpInterfaceKeyBO);
         if (httpInterfaceBO == null || httpInterfaceBO.getId().equals(request.getId())) {
             conflictJudgementDTO.setConflict(false);
         } else {

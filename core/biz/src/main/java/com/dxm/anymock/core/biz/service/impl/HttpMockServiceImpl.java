@@ -4,7 +4,9 @@ import com.dxm.anymock.common.base.enums.ResultCode;
 import com.dxm.anymock.common.base.exception.BizException;
 import com.dxm.anymock.common.base.interceptor.MdcManager;
 import com.dxm.anymock.common.dal.HttpInterfaceCacheManager;
+import com.dxm.anymock.common.dal.dao.HttpInterfaceCallLogDao;
 import com.dxm.anymock.common.dal.dao.HttpInterfaceDao;
+import com.dxm.anymock.common.dal.entity.HttpInterfaceCallLogDO;
 import com.dxm.anymock.common.dal.model.HttpInterfaceBO;
 import com.dxm.anymock.common.dal.model.HttpInterfaceKeyBO;
 import com.dxm.anymock.core.biz.HttpMockContext;
@@ -38,8 +40,49 @@ public class HttpMockServiceImpl implements HttpMockService {
 
     private static final String BODY = "body";
 
+    private String buildRequestHeaders(HttpServletRequest request) {
+        StringBuilder sb = new StringBuilder();
+        Enumeration headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String key = (String) headerNames.nextElement();
+            sb.append(key).append(":").append(request.getHeader(key)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private void recordCallLog(HttpServletRequest request, HttpServletResponse response, boolean async) {
+        try {
+            HttpInterfaceCallLogDO logDO = new HttpInterfaceCallLogDO();
+            logDO.setHttpInterfaceId(request.getAttribute("_httpInterfaceId") != null
+                    ? (Long) request.getAttribute("_httpInterfaceId") : null);
+            logDO.setRequestUri(request.getRequestURI());
+            logDO.setRequestMethod(request.getMethod());
+            logDO.setRequestHeaders(request.getAttribute("_requestHeaders") != null
+                    ? (String) request.getAttribute("_requestHeaders") : buildRequestHeaders(request));
+            logDO.setRequestBody((String) request.getAttribute(BODY));
+            logDO.setResponseBody((String) request.getAttribute("_responseBody"));
+            logDO.setResponseStatus(response.getStatus());
+            logDO.setAsync(String.valueOf(async));
+            
+            // 计算耗时
+            Long startTime = (Long) request.getAttribute("_startTime");
+            if (startTime != null) {
+                long costTime = System.currentTimeMillis() - startTime;
+                logDO.setCostTime(costTime);
+            }
+            
+            logDO.setGmtCreate(new Date());
+            httpInterfaceCallLogDao.insert(logDO);
+        } catch (Exception e) {
+            logger.warn("Failed to record call log", e);
+        }
+    }
+
     @Autowired
     private HttpInterfaceDao httpInterfaceDao;
+
+    @Autowired
+    private HttpInterfaceCallLogDao httpInterfaceCallLogDao;
 
     @Autowired
     private HttpInterfaceCacheManager httpInterfaceCacheManager;
@@ -154,16 +197,25 @@ public class HttpMockServiceImpl implements HttpMockService {
 
     @Override
     public void mock(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // 记录开始时间
+        long startTime = System.currentTimeMillis();
+        request.setAttribute("_startTime", startTime);
+
         HttpMockContext context = new HttpMockContext();
 
         // 加载HTTP接口数据
         HttpInterfaceKeyBO httpInterfaceKeyBO = new HttpInterfaceKeyBO();
         httpInterfaceKeyBO.setRequestMethod(request.getMethod());
         httpInterfaceKeyBO.setRequestUri(request.getRequestURI());
-        context.setHttpInterfaceBO(loadHttpInterfaceBO(httpInterfaceKeyBO));
+        HttpInterfaceBO httpInterfaceBO = loadHttpInterfaceBO(httpInterfaceKeyBO);
+        context.setHttpInterfaceBO(httpInterfaceBO);
 
         // 由于输入流能且仅能读取一次，而后续可能多次调用，因此需要临时存储
         request.setAttribute(BODY, buildHttpBody(request));
+
+        // 存储接口ID和请求头用于日志记录
+        request.setAttribute("_httpInterfaceId", httpInterfaceBO.getId());
+        request.setAttribute("_requestHeaders", buildRequestHeaders(request));
 
         if (logger.isInfoEnabled()) {
             logger.info("\n################### HTTP REQUEST ###################\n"
@@ -174,14 +226,22 @@ public class HttpMockServiceImpl implements HttpMockService {
         // 同步
         httpSyncMockService.mock(context, request, response);
 
+        // 同步日志记录
+        recordCallLog(request, response, false);
+
         // 异步
-        if (BooleanUtils.isTrue(context.getHttpInterfaceBO().getNeedAsyncCallback())) {
+        if (BooleanUtils.isTrue(httpInterfaceBO.getNeedAsyncCallback())) {
             String mdcTraceId = MDC.get(MdcManager.MDC_TRACE_ID_KEY);
             MockHttpServletRequest mockRequest = buildMockRequest(request);
+            mockRequest.setAttribute("_httpInterfaceId", httpInterfaceBO.getId());
+            mockRequest.setAttribute("_requestHeaders", buildRequestHeaders(request));
+            mockRequest.setAttribute(BODY, request.getAttribute(BODY));
             threadPoolTaskExecutor.execute(() -> {
                 try {
                     MDC.put(MdcManager.MDC_TRACE_ID_KEY, mdcTraceId);
                     httpAsyncMockService.mock(context, mockRequest);
+                    // 异步日志记录
+                    recordCallLog(mockRequest, response, true);
                     MDC.clear();
                 } catch (Exception e) {
                     logger.warn("", e);

@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -64,12 +66,22 @@ public class ApiProxyController {
             HttpRequestBase httpRequest;
             if ("GET".equals(method)) {
                 httpRequest = new HttpGet(urlStr);
-            } else {
+            } else if ("POST".equals(method)) {
                 HttpPost post = new HttpPost(urlStr);
                 if (!requestBody.isEmpty()) {
                     post.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
                 }
                 httpRequest = post;
+            } else if ("PUT".equals(method)) {
+                HttpPut put = new HttpPut(urlStr);
+                if (!requestBody.isEmpty()) {
+                    put.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
+                }
+                httpRequest = put;
+            } else if ("DELETE".equals(method)) {
+                httpRequest = new HttpDelete(urlStr);
+            } else {
+                throw new IllegalArgumentException("Unsupported HTTP method: " + method);
             }
 
             // 转发自定义请求头（如 Authorization、Content-Type）

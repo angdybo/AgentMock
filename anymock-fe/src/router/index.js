@@ -8,6 +8,10 @@ import Layout from './../views/layout/HeaderAsideLayout/index'
 
 export const constantRouterMap = [
   {
+    path: '/',
+    redirect: '/home'
+  },
+  {
     path: '/redirect',
     component: Layout,
     children: [

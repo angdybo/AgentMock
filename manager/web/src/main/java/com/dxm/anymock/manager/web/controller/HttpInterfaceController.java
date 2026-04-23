@@ -6,7 +6,9 @@ import com.dxm.anymock.common.dal.model.HttpInterfaceBO;
 import com.dxm.anymock.manager.biz.model.request.*;
 import com.dxm.anymock.manager.biz.model.response.PagingDataResponse;
 import com.dxm.anymock.manager.biz.model.response.dto.ConflictJudgementDTO;
+import com.dxm.anymock.manager.biz.model.response.dto.HttpInterfaceCallLogDTO;
 import com.dxm.anymock.manager.biz.model.response.dto.HttpInterfaceDTO;
+import com.dxm.anymock.manager.biz.service.HttpInterfaceCallLogService;
 import com.dxm.anymock.manager.biz.service.HttpInterfaceService;
 import com.dxm.anymock.manager.biz.model.response.BaseResponse;
 import com.dxm.anymock.manager.biz.model.response.DataResponse;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.List;
+
 import static com.dxm.anymock.manager.web.WebConstants.URL_PREFIX_API_V2;
 
 @Controller
@@ -26,6 +30,9 @@ public class HttpInterfaceController {
 
     @Autowired
     private HttpInterfaceService httpInterfaceService;
+
+    @Autowired
+    private HttpInterfaceCallLogService httpInterfaceCallLogService;
 
     @Autowired
     private ResultCodeTranslator translator;
@@ -92,5 +99,15 @@ public class HttpInterfaceController {
     public BaseResponse delete(@Validated @RequestBody IdRequest idRequest) {
         httpInterfaceService.delete(idRequest.getId());
         return new BaseResponse(translator.translate(ResultCode.SUCCESS_DELETE_HTTP_INTERFACE));
+    }
+
+    @PostMapping("/interface_http/call_logs/selectByInterfaceId")
+    @ResponseBody
+    public PagingDataResponse<HttpInterfaceCallLogDTO> selectCallLogsByInterfaceId(
+            @Validated @RequestBody CallLogRequest request
+    ) {
+        return new PagingDataResponse<>(
+                translator.translate(ResultCode.SUCCESS),
+                httpInterfaceCallLogService.selectByInterfaceIdPaging(request));
     }
 }

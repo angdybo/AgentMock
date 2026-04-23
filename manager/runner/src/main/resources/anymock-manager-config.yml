@@ -34,6 +34,16 @@ logging:
 
 server:
   port: 8329
+  tomcat:
+    accesslog:
+      enabled: true
+      directory: /app/logs
+      prefix: access_log
+      suffix: .log
+      file-date-format: yyyy-MM-dd
+      rotate: false
+      pattern: "%h %l %u %t \"%r\" %s %b %D"
+      request-attributes-enabled: true
 
 anymock:
   core:

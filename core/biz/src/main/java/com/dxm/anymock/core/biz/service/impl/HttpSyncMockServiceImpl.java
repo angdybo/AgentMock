@@ -9,6 +9,7 @@ import com.dxm.anymock.common.dal.model.enums.ConfigMode;
 import com.dxm.anymock.core.biz.Delayer;
 import com.dxm.anymock.core.biz.service.GroovyService;
 import com.dxm.anymock.core.biz.service.HttpSyncMockService;
+import com.dxm.anymock.core.biz.service.MockDataGeneratorService;
 import com.dxm.anymock.core.biz.HttpMockContext;
 import groovy.lang.Binding;
 import org.apache.commons.lang3.StringUtils;
@@ -33,6 +34,9 @@ public class HttpSyncMockServiceImpl implements HttpSyncMockService {
 
     @Autowired
     private GroovyService groovyService;
+
+    @Autowired
+    private MockDataGeneratorService mockDataGeneratorService;
 
     private HttpInterfaceBranchBO findBranch(String branchName, List<HttpInterfaceBranchBO> branchBOList) {
         for (HttpInterfaceBranchBO branchBO : branchBOList) {
@@ -81,6 +85,8 @@ public class HttpSyncMockServiceImpl implements HttpSyncMockService {
         String responseBody;
         if (configMode == TEXT) {
             responseBody = httpInterfaceBO.getResponseBody();
+            // 解析并替换数据生成器占位符
+            responseBody = mockDataGeneratorService.parse(responseBody);
         } else if (configMode == GROOVY) {
             Binding binding = buildSyncBinding(request, response);
             responseBody = groovyService.exec(binding, httpInterfaceBO.getSyncScript());
@@ -99,6 +105,9 @@ public class HttpSyncMockServiceImpl implements HttpSyncMockService {
             throw new SysException("Unknown ConfigMode");
         }
         logger.info("ResponseBody = {}", responseBody);
+
+        // 保存响应体到 request attribute，用于日志记录
+        request.setAttribute("_responseBody", responseBody);
 
         if (StringUtils.isNotBlank(responseBody)) {
             response.getWriter().write(responseBody);

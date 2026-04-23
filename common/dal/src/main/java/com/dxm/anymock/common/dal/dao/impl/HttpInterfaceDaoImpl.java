@@ -85,6 +85,28 @@ public class HttpInterfaceDaoImpl implements HttpInterfaceDao {
         }
     }
 
+    /**
+     * 轻量级查询，只返回基本信息（不加载关联数据）
+     * 用于冲突检测等只需要检查ID的场景
+     */
+    @Override
+    public HttpInterfaceBO queryByKeyLightweight(HttpInterfaceKeyBO httpInterfaceKeyBO) {
+        HttpInterfaceDOExample example = new HttpInterfaceDOExample();
+        example.createCriteria()
+                .andRequestUriEqualTo(httpInterfaceKeyBO.getRequestUri())
+                .andRequestMethodEqualTo(httpInterfaceKeyBO.getRequestMethod());
+        List<HttpInterfaceDO> httpInterfaceDOList = httpInterfaceDOMapper.selectByExample(example);
+        int resultSize = httpInterfaceDOList.size();
+        if (resultSize == 0) {
+            return null;
+        } else if (resultSize == 1) {
+            // 轻量级转换，只复制基本信息
+            return convertToBOWithoutRelations(httpInterfaceDOList.get(0));
+        } else {
+            throw new IncorrectResultSizeException(resultSize);
+        }
+    }
+
     @Override
     public Long create(HttpInterfaceBO httpInterfaceBO) {
         HttpInterfaceDO httpInterfaceDO = convertToDO(httpInterfaceBO);
@@ -203,6 +225,22 @@ public class HttpInterfaceDaoImpl implements HttpInterfaceDao {
         httpInterfaceBO.setResponseHeaderList(httpInterfaceHeaderDao.batchQuery(id, HttpHeaderType.RESPONSE));
         httpInterfaceBO.setCallbackRequestHeaderList(httpInterfaceHeaderDao.batchQuery(id, HttpHeaderType.CALLBACK_REQUEST));
         httpInterfaceBO.setBranchScriptList(httpInterfaceBranchDao.batchQuery(id));
+        return httpInterfaceBO;
+    }
+
+    /**
+     * 轻量级转换，不加载关联表数据
+     */
+    private HttpInterfaceBO convertToBOWithoutRelations(HttpInterfaceDO httpInterfaceDO) {
+        HttpInterfaceBO httpInterfaceBO = new HttpInterfaceBO();
+        BeanUtils.copyProperties(httpInterfaceDO, httpInterfaceBO);
+        httpInterfaceBO.setConfigMode(EnumUtils.getEnum(ConfigMode.class, httpInterfaceDO.getConfigMode()));
+        httpInterfaceBO.setAccessAuthority(EnumUtils.getEnum(AccessAuthority.class, httpInterfaceDO.getAccessAuthority()));
+
+        // 不加载关联数据
+        httpInterfaceBO.setResponseHeaderList(new LinkedList<>());
+        httpInterfaceBO.setCallbackRequestHeaderList(new LinkedList<>());
+        httpInterfaceBO.setBranchScriptList(new LinkedList<>());
         return httpInterfaceBO;
     }
 

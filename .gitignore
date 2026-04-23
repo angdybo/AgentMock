@@ -1,7 +1,36 @@
-﻿.classpath
+.classpath
 .project
 .settings/
 target/
 .idea/
 *.iml
-output.workbuddy/
+output.workb/
+
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# 前端构建产物
+dist/
+dist-ssr/
+*.local
+
+# 各种 tar 包
+*.tar
+*.tar.gz
+
+# IDE
+.DS_Store
+.vscode/
+*.swp
+*.swo
+
+# 日志
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
